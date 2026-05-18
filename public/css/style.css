@@ -1,0 +1,105 @@
+@font-face 
+  {
+    font-family: 'NanumSquareNeo';
+    src: url('../../fonts/NanumSquareNeo-bRg.ttf') format('ttf');
+  }
+
+body { 
+  margin: 0;
+  font-family: 'NanumSquareNeo';
+  background-color: #f0fff0;
+  overflow-y: auto;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* 상단 네비게이션 */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #a8e6cf;
+  padding: 10px 20px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 15px;
+}
+
+.nav-links li a {
+  font-weight: bold;
+  color: #333;
+}
+
+.nav-links li a:hover {
+  color: #007a5e;
+}
+
+/* 히어로 영역 */
+.hero {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 2.5rem;
+  color: #4caf50;
+}
+
+.hero p {
+  font-size: 1.2rem;
+  color: #555;
+}
+
+/* 하단 고정 네비게이션 */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  height: 60px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid #ccc;
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.bottom-nav ul {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  margin: 0;
+
+}
+
+.bottom-nav a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 12px;
+  color: #333;
+    cursor: pointer;
+}
+
+.bottom-nav a i {
+  font-size: 18px;
+  margin-bottom: 2px;
+  color: #333;
+}
