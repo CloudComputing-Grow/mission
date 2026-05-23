@@ -1,0 +1,191 @@
+// services/missionService.js
+
+const missionModel = require('../models/missionModel');
+const certModel = require('../models/certificationModel');
+const missionExecutionModel = require('../models/missionExecutionModel');
+const levelOptionModel = require('../models/levelOptionModel');
+
+/**
+ * MSA 가상 외부 서비스 통신 클라이언트 (실제 구현 시 axios나 gRPC 등으로 대체)
+ * Mission 서비스 외부의 테이블(User, Growth, Inventory, Item, Fruit)을 제어합니다.
+ */
+const externalServiceClient = {
+  async getUser(userId) { return { user_id: userId, nickname: '홍길동', level: 1 }; },
+  async updateUserLevel(userId, newLevel) { },
+  async getLatestTree(userId) { return { growth_rate: 40, is_harvested: false }; },
+  async updateTreeGrowth(userId, rateIncrement) { },
+  async updateTreeGrowthById(growthStatusId, rateIncrement) { },
+  async giveFertilizer(userId) { },
+  async consumeFertilizer(userId) { return { item_id: 1, item_count: 5 }; },
+  async getRandomFruit() { return { fruit_id: 1, fruit_name: '사과' }; },
+  async givePlantedFruit(userId, fruit) { },
+  async deletePlantedFruit(userId) { }
+};
+
+const missionService = {
+  async getDashboardData(userId, queryMissionId) {
+    const user = await externalServiceClient.getUser(userId);
+    const allMissions = await missionModel.getAllMissions();
+    const certifications = await certModel.getCertificationsByUser(userId);
+    
+    const completedIds = certifications.map(c => c.mission_id);
+    const nextMission = allMissions.find(m => !completedIds.includes(m.mission_id));
+    const result = certifications.find(c => c.mission_id === nextMission?.mission_id);
+
+    let mission = null;
+    if (queryMissionId) {
+      mission = await missionModel.getMissionById(queryMissionId);
+    } else {
+      mission = nextMission || null;
+    }
+
+    return { mission, result: result || null };
+  },
+
+  async submitMission(userId, missionId, filename) {
+    const missionExecutionId = await missionExecutionModel.createExecution(missionId, userId, false);
+    await certModel.saveCertification({
+      mission_execution_id: missionExecutionId,
+      user_id: userId,
+      image_source: filename
+    });
+  },
+
+  async confirmMissionExecution(userId, missionExecutionId) {
+    // 1. 내부 미션/인증 데이터 업데이트
+    await certModel.updateConfirmation(missionExecutionId, userId);
+    await missionExecutionModel.updateExecutionToComplete(missionExecutionId);
+
+    // 2. 외부 서비스 통신: 성장률 상승 및 비료 지급 요청
+    await externalServiceClient.updateTreeGrowth(userId, 20);
+    await externalServiceClient.giveFertilizer(userId);
+  },
+
+  async getMissionListData(userId, session) {
+    const userInfo = await externalServiceClient.getUser(userId);
+    const currentLevel = userInfo.level;
+
+    const mList = await missionModel.getMissionsByLevel(currentLevel);
+    const certDetails = await certModel.getCertStatusDetails(userId);
+
+    const certStatus = {};
+    let showFertilizerModal = false;
+    let latestMissionExecutionId = null;
+
+    certDetails.forEach(c => {
+      certStatus[c.mission_id] = {
+        status: c.checked === 1 && c.confirmed_by_user === 1,
+        date: c.certification_date,
+        mission_execution_id: c.mission_execution_id,
+        awaitingConfirm: c.checked === 1 && c.confirmed_by_user === 0
+      };
+
+      if (c.confirmed_by_user === 1 && session.prevConfirmedId === c.mission_execution_id && !session.fertilizerUsed) {
+        showFertilizerModal = true;
+        latestMissionExecutionId = c.mission_execution_id;
+      }
+    });
+
+    const currentMissions = mList.filter(m => m.level === currentLevel);
+    const clearedMissions = currentMissions.filter(m => certStatus[m.mission_id]?.status);
+
+    const treeRow = await externalServiceClient.getLatestTree(userId);
+    const hasFullyGrownTree = treeRow && !treeRow.is_harvested && treeRow.growth_rate >= 100;
+
+    let showLevelOptionModal = !showFertilizerModal && (clearedMissions.length === 5 || hasFullyGrownTree);
+
+    // 1. 이미 NEXT를 선택했는지 내부 DB 체크
+    const prevOption = await levelOptionModel.getLatestOption(userId);
+    if (prevOption && prevOption.selected_option === 'NEXT') {
+      showLevelOptionModal = false;
+    }
+
+    // 2. 외부 트리 정보 기반 체크 (비료 수확 예외)
+    if (!showLevelOptionModal && treeRow) {
+      if (treeRow.is_harvested && treeRow.growth_rate === 100) {
+        showLevelOptionModal = true;
+      }
+    }
+
+    const growthRate = treeRow?.growth_rate || 0;
+    const inferredCompleted = Math.floor(growthRate / 20);
+    const missionCompleted = Math.max(clearedMissions.length, inferredCompleted);
+
+    // 과일 지급 로직 (외부 서비스 조합)
+    let rewardGivenThisTurn = false;
+    if (missionCompleted >= 5 && !session.levelRewardGiven) {
+      const executions = await missionExecutionModel.getCompletedDatesByLevel(userId, currentLevel);
+      if (executions.length >= 5) {
+        const start = new Date(executions[0].completed_date);
+        const end = new Date(executions[4].completed_date);
+        if ((end - start) / (1000 * 60 * 60 * 24) <= 10) {
+          const randomFruit = await externalServiceClient.getRandomFruit();
+          await externalServiceClient.givePlantedFruit(userId, randomFruit);
+          rewardGivenThisTurn = true;
+        }
+      }
+    }
+
+    return {
+      missions: mList,
+      certStatus,
+      nickname: userInfo.nickname,
+      currentLevel: `${currentLevel}단계`,
+      showFertilizerModal,
+      latestMissionExecutionId,
+      showLevelOptionModal,
+      rewardGivenThisTurn
+    };
+  },
+
+  async processLevelOption(userId, option) {
+    await levelOptionModel.deleteOptionsByUserId(userId);
+    await levelOptionModel.insertOption(userId, option);
+
+    if (option === 'NEXT') {
+      const user = await externalServiceClient.getUser(userId);
+      if (user.level === 8) return { redirect: '/last-complete' };
+
+      await externalServiceClient.updateUserLevel(userId, user.level + 1);
+      await externalServiceClient.deletePlantedFruit(userId);
+      return { redirect: '/home' };
+    } 
+    
+    if (option === 'RETRY') {
+      const user = await externalServiceClient.getUser(userId);
+      const executionIds = await missionExecutionModel.getExecutionIdsByLevel(userId, user.level);
+      
+      if (executionIds.length > 0) {
+        await certModel.deleteCertificationsInExecutionIds(executionIds);
+        await missionExecutionModel.deleteExecutionsInIds(executionIds);
+      }
+
+      const randomFruit = await externalServiceClient.getRandomFruit();
+      await externalServiceClient.givePlantedFruit(userId, randomFruit);
+    }
+
+    return { redirect: '/dashboard/mission' };
+  },
+
+  async useFertilizer(userId) {
+    // 1. 외부 아이템 소모 통신 수행 및 검증
+    const targetTree = await externalServiceClient.getLatestTree(userId);
+    if (!targetTree || targetTree.is_harvested) {
+      throw new Error('성장 중인 나무가 없습니다.');
+    }
+
+    // 외부 서비스에 비료 차감 및 나무 성장량 증가 명령
+    await externalServiceClient.consumeFertilizer(userId);
+    await externalServiceClient.updateTreeGrowthById(targetTree.growth_status_id, 20);
+
+    // 2. 내부 로컬 미션 완료 추가 기록
+    const user = await externalServiceClient.getUser(userId);
+    const availableMission = await missionModel.getAvailableMissionForUser(userId, user.level);
+
+    if (availableMission) {
+      await missionExecutionModel.createExecutionWithDate(availableMission.mission_id, userId, true);
+    }
+  }
+};
+
+module.exports = missionService;
