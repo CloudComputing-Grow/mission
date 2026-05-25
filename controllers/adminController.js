@@ -29,7 +29,7 @@ const adminController = {
       return res.status(200).json({
         success: true,
         message: '인증 승인 처리가 완료되었습니다.',
-        redirectUrl: '/admin/certifications' // 프론트엔드 라우팅 유도용
+        redirectUrl: '/api/v1/admin/certs' // 프론트엔드 라우팅 유도용
       });
     } catch (err) {
       console.error('승인 실패:', err);
@@ -46,7 +46,7 @@ const adminController = {
       return res.status(200).json({
         success: true,
         message: '인증 취소 및 보상 회수 처리가 완료되었습니다.',
-        redirectUrl: '/admin/certifications'
+        redirectUrl: '/api/v1/admin/certs'
       });
     } catch (err) {
       console.error('취소 실패:', err);

@@ -5,28 +5,22 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const dashboardController = require('../controllers/dashboardController');
+const { uploader, uploadToGCS } = require('../middlewares/upload');
 
 
-const uploadPath = path.join(__dirname, '../public/uploads');
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
+// GET /api/v1/missions
+router.get('/', dashboardController.getMissionList);
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => { cb(null, uploadPath); },
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueName + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage });
+// GET /api/v1/missions/detail
+router.get('/detail', dashboardController.getDashboard);
 
+// POST /api/v1/missions/submit
+router.post('/submit', uploader.single('photo'), uploadToGCS, dashboardController.submitMission);
 
-router.get('/', dashboardController.getDashboard);
-router.post('/submit', upload.single('photo'), dashboardController.submitMission);
+// POST /api/v1/missions/confirm/:mission_execution_id
 router.post('/confirm/:mission_execution_id', dashboardController.confirmMission);
-router.get('/mission', dashboardController.getMissionList);
+
+// POST /api/v1/missions/level-option
 router.post('/level-option', dashboardController.postLevelOption);
-router.post('/use-fertilizer', dashboardController.useFertilizer);
 
 module.exports = router;

@@ -4,11 +4,8 @@ const missionModel = require('../models/missionModel');
 const certModel = require('../models/certificationModel');
 const missionExecutionModel = require('../models/missionExecutionModel');
 const levelOptionModel = require('../models/levelOptionModel');
+const { getChannel } = require('./rabbitmq');
 
-/**
- * MSA 가상 외부 서비스 통신 클라이언트 (실제 구현 시 axios나 gRPC 등으로 대체)
- * Mission 서비스 외부의 테이블(User, Growth, Inventory, Item, Fruit)을 제어합니다.
- */
 const externalServiceClient = {
   async getUser(userId) { return { user_id: userId, nickname: '홍길동', level: 1 }; },
   async updateUserLevel(userId, newLevel) { },
@@ -42,23 +39,52 @@ const missionService = {
     return { mission, result: result || null };
   },
 
-  async submitMission(userId, missionId, filename) {
+  async submitMission(userId, missionId, imageUrl) {
     const missionExecutionId = await missionExecutionModel.createExecution(missionId, userId, false);
     await certModel.saveCertification({
       mission_execution_id: missionExecutionId,
       user_id: userId,
-      image_source: filename
+      image_source: imageUrl
     });
   },
 
   async confirmMissionExecution(userId, missionExecutionId) {
-    // 1. 내부 미션/인증 데이터 업데이트
-    await certModel.updateConfirmation(missionExecutionId, userId);
-    await missionExecutionModel.updateExecutionToComplete(missionExecutionId);
+    try {
+      // 내부 미션/인증 데이터 업데이트
+      await certModel.updateConfirmation(missionExecutionId, userId);
+      await missionExecutionModel.updateExecutionToComplete(missionExecutionId);
 
-    // 2. 외부 서비스 통신: 성장률 상승 및 비료 지급 요청
-    await externalServiceClient.updateTreeGrowth(userId, 20);
-    await externalServiceClient.giveFertilizer(userId);
+      // 미리 싱글톤으로 열려있는 글로벌 채널 가져오기
+      const channel = getChannel();
+      const exchangeName = 'grow.mission.fanout';
+
+      // 이벤트 메시지 작성
+      const eventPayload = {
+        userId,
+        missionExecutionId,
+        timestamp: new Date().toISOString()
+      };
+
+      // 메시지 발행
+      const isSent = channel.publish(
+        exchangeName,
+        '',
+        Buffer.from(JSON.stringify(eventPayload)),
+        { persistent: true }
+      );
+
+      if (!isSent) {
+        // RabbitMQ 내부 버퍼가 가득 찼을 때의 예외 처리
+        console.warn(`[경고] 메시지 버퍼 가득 참: ${missionExecutionId}`);
+      }
+
+      console.log(`[미션 서비스] 완료 이벤트 발행 성공: ${missionExecutionId}`);
+
+    } catch (error) {
+      console.error('[미션 서비스] 처리 중 에러 발생:', error);
+      // 여기서 필요하다면 DB 롤백 로직을 태우거나 에러를 상위로 던짐
+      throw error;
+    }
   },
 
   async getMissionListData(userId, session) {

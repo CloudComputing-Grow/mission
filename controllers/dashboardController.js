@@ -20,14 +20,14 @@ const dashboardController = {
     try {
       const userId = req.user.user_id;
       const missionId = parseInt(req.body.missionId);
-      const filename = req.file ? req.file.filename : null;
+      const imageUrl = req.file ? req.file.gcsUrl : null;
 
-      await missionService.submitMission(userId, missionId, filename);
+      await missionService.submitMission(userId, missionId, imageUrl);
 
       return res.status(201).json({
         success: true,
         message: '미션 제출 완료',
-        redirectUrl: '/dashboard/mission' // 프론트엔드가 읽어서 push할 경로
+        redirectUrl: '/api/v1/missions'
       });
     } catch (err) {
       console.error(err);
@@ -45,7 +45,7 @@ const dashboardController = {
       return res.status(200).json({
         success: true,
         message: '미션 완료 확정 성공',
-        redirectUrl: '/dashboard/mission'
+        redirectUrl: '/api/v1/missions'
       });
     } catch (err) {
       console.error(err);

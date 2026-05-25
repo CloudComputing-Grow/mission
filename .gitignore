@@ -1,3 +1,5 @@
 secret.yml
 secret.yaml
 .env
+node_modules/
+config/clouding-computer-491105-07244ae433cf.json

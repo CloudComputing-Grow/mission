@@ -1,121 +1,102 @@
+// app.js
 const express = require('express');
 const path = require('path');
-
 const dotenv = require('dotenv');
 const session = require('express-session');
-const MySQLStore = require('express-mysql-session')(session);
+const { createClient } = require('redis');
+const RedisStore = require('connect-redis').default;
 const morgan = require('morgan');
+const { initRabbitMQ } = require('./rabbitmq')
 
-const passport = require('./config/passport');
-const flash = require('connect-flash');
-const expressLayouts = require('express-ejs-layouts');
-
-// Load environment variables
+// 환경 변수 로드
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// DB 연결 설정 (예: db.js 참고)
-const db = require('./db/db'); // db.js에서 mysql2/promise로 connection 풀 만들었을 경우
+// DB 연결 (비즈니스 로직 및 라우터에서 사용)
+const db = require('./db/db'); 
 
-// Session 설정
-const sessionStore = new MySQLStore({}, db.promisePool);
+// 미션 서비스 전용 레디스 클라이언트 연결
+const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+redisClient.connect().catch(console.error);
 
-app.use(session({
-  key: 'user_sid',
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: true,
-  store: sessionStore
-}));
-
-
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
-// 미들웨어
-app.use(expressLayouts);
-app.set('layout', 'layout'); // 기본 layout 지정
-app.set('view options', { layout: 'layout' });
+// 전역 미들웨어 설정 (로깅 및 파싱)
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(flash());
-app.use((req, res, next) => {
-    res.locals.error = req.flash('error');
-    next();
-});
 
-app.use(passport.initialize());
-app.use(passport.session());
+// Redis 기반 세션 미들웨어 설정
+app.use(session({
+  store: new RedisStore({ client: redisClient }),
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false,
+    httpOnly: true,
+    sameSite: 'lax'
+  }
+}));
 
+// [JWT/인증 검증 미들웨어] 게이트웨이나 토큰에서 유저 정보 추출
 app.use((req, res, next) => {
-  res.locals.currentPath = req.path;
+  // 게이트웨이가 JWT를 검증하고 헤더로 유저 ID를 넘겨준다고 가정
+  if (req.headers['x-user-id']) {
+    req.user = { id: req.headers['x-user-id'] };
+  }
   next();
 });
+
+// [세션 디버깅 미들웨어] 세션에 변수들이 잘 쌓이는지 확인용
+app.use((req, res, next) => {
+  if (req.session) {
+    console.log(`[User ${req.user?.id || 'Unknown'}] 세션 변수 상태:`, req.session);
+  }
+  next();
+});
+
 // 라우터 등록
-const authRouter = require('./routes/auth');
-const dashboardRouter = require('./routes/dashboard');
-const diaryRouter = require('./routes/diary');
-const collectionRouter = require('./routes/collection');
-const communityRouter = require('./routes/community');
-const marketRouter = require('./routes/market');
-const mypageRouter = require('./routes/mypage');
-const homeRouter = require('./routes/home');
-const scrapRouter = require('./routes/scrap');
+const missionRouter = require('./routes/dashboard');
 const adminRouter = require('./routes/admin');
-const inventoryRouter = require('./routes/inventory');
-const lastCompleteRouter = require('./routes/last-complete');
+//const lastCompleteRouter = require('./routes/last-complete');
 
+app.use('/api/v1/missions', missionRouter);
+app.use('/api/v1/admin', adminRouter);
+// app.use('/api/v1/last-complete', lastCompleteRouter); 
 
-app.use('/', authRouter);
-app.use('/dashboard', dashboardRouter);
-app.use('/diary', diaryRouter);
-app.use('/collection', collectionRouter);
-app.use('/community', communityRouter);
-app.use('/market', marketRouter);
-app.use('/mypage', mypageRouter);
-app.use('/admin', adminRouter);
-app.use('/inventory', inventoryRouter);
-app.use('/home', homeRouter);
-app.use('/scrap', scrapRouter);
-app.use('/last-complete', lastCompleteRouter);
-
+// 404 에러 처리 미들웨어
 app.use((req, res, next) => {
-  
-  res.locals.user = req.user; // view에서도 접근 가능하도록
-  next();
-});
-// 기본 라우트
-app.get('/', (req, res) => {
-  res.render('index');
+  const error = new Error(`정의되지 않은 엔드포인트입니다: ${req.method} ${req.url}`);
+  error.status = 404;
+  next(error);
 });
 
-
-app.use((req, res, next) => {
-  res.locals.user = req.user;
-  next();
-});
-
-
-// 전역 에러 핸들러
+// 전역 에러 핸들러 (JSON 응답으로 통일)
 app.use((err, req, res, next) => {
-  res.status(err.status || 500);
-  res.render('error', {
-    message: err.message,
-    error: err
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || '서버 내부 오류가 발생했습니다.',
+    // 개발 환경에서만 에러 상세 스택 출력
+    error: process.env.NODE_ENV === 'development' ? err : {}
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 서버 실행 중: http://localhost:${PORT}`);
-});
+async function startServer() {
+  try {
+    
+    // 서버 켜질 때 RabbitMQ 커넥션 딱 한 번 맺어두기
+    await initRabbitMQ(); 
+    
+    app.listen(PORT, () => {
+      console.log(`미션 서비스 서버가 포트 ${PORT}에서 정상 작동 중입니다.`);
+    });
+  } catch (error) {
+    console.error('미션 서비스 서버 구동 중 에러 발생:', error);
+    process.exit(1); // 초기화 실패 시 서버 종료
+  }
+}
 
-app.use((req, res, next) => {
-  console.log('🔐 req.session.user:', req.session.user);
-  next();
-});
+startServer();
 
 module.exports = app;

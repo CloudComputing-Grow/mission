@@ -5,8 +5,14 @@ const adminController = require('../controllers/adminController');
 
 
 // 엔드포인트 바인딩
-router.get('/certifications', adminController.getCertifications);
-router.post('/certifications/:id/approve', adminController.approveCertification);
-router.post('/certifications/:id/cancel', adminController.cancelCertification);
+
+// GET /api/v1/admin/certs
+router.get('/certs', adminController.getCertifications);
+
+// POST /api/v1/admin/certs/:id/approve
+router.post('/certs/:id/approve', adminController.approveCertification);
+
+// POST /api/v1/admin/certs/:id/cancel
+router.post('/certs/:id/cancel', adminController.cancelCertification);
 
 module.exports = router;
