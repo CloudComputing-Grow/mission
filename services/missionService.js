@@ -10,8 +10,6 @@ const externalServiceClient = {
   async getUser(userId) { return { user_id: userId, nickname: '홍길동', level: 1 }; },
   async updateUserLevel(userId, newLevel) { },
   async getLatestTree(userId) { return { growth_rate: 40, is_harvested: false }; },
-  async updateTreeGrowthById(growthStatusId, rateIncrement) { },
-  async consumeFertilizer(userId) { return { item_id: 1, item_count: 5 }; },
   async getRandomFruit() { return { fruit_id: 1, fruit_name: '사과' }; },
   async givePlantedFruit(userId, fruit) { },
   async deletePlantedFruit(userId) { }
