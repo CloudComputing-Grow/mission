@@ -189,27 +189,8 @@ const missionService = {
     }
 
     return { redirect: '/dashboard/mission' };
-  },
-
-  async useFertilizer(userId) {
-    // 1. 외부 아이템 소모 통신 수행 및 검증
-    const targetTree = await externalServiceClient.getLatestTree(userId);
-    if (!targetTree || targetTree.is_harvested) {
-      throw new Error('성장 중인 나무가 없습니다.');
-    }
-
-    // 외부 서비스에 비료 차감 및 나무 성장량 증가 명령
-    await externalServiceClient.consumeFertilizer(userId);
-    await externalServiceClient.updateTreeGrowthById(targetTree.growth_status_id, 20);
-
-    // 2. 내부 로컬 미션 완료 추가 기록
-    const user = await externalServiceClient.getUser(userId);
-    const availableMission = await missionModel.getAvailableMissionForUser(userId, user.level);
-
-    if (availableMission) {
-      await missionExecutionModel.createExecutionWithDate(availableMission.mission_id, userId, true);
-    }
   }
+
 };
 
 module.exports = missionService;
