@@ -92,23 +92,8 @@ const dashboardController = {
       console.error(err);
       return res.status(500).json({ success: false, message: '레벨 옵션 처리 실패' });
     }
-  },
-
-  async useFertilizer(req, res) {
-    try {
-      const userId = req.user.user_id;
-      await missionService.useFertilizer(userId);
-
-      return res.status(200).json({
-        success: true,
-        message: '비료 사용 성공',
-        redirectUrl: '/home'
-      });
-    } catch (err) {
-      console.error('🔥 비료 사용 중 오류:', err);
-      return res.status(400).json({ success: false, message: err.message || '비료 사용 중 오류 발생' });
-    }
   }
 };
+
 
 module.exports = dashboardController;
