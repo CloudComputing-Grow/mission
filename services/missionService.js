@@ -6,13 +6,17 @@ const missionExecutionModel = require('../models/missionExecutionModel');
 const levelOptionModel = require('../models/levelOptionModel');
 const { getChannel } = require('./rabbitmq');
 
+const userService = require('./external/userService');
+const inventoryService = require('./external/inventoryService');
+const growthDiaryService = require('./external/growthDiaryService');
+
 const externalServiceClient = {
-  async getUser(userId) { return { user_id: userId, nickname: '홍길동', level: 1 }; },
-  async updateUserLevel(userId, newLevel) { },
-  async getLatestTree(userId) { return { growth_rate: 40, is_harvested: false }; },
-  async getRandomFruit() { return { fruit_id: 1, fruit_name: '사과' }; },
-  async givePlantedFruit(userId, fruit) { },
-  async deletePlantedFruit(userId) { }
+  getUser: userService.getUser,
+  updateUserLevel: userService.updateUserLevel,
+  getLatestTree: growthDiaryService.getLatestTree,          // To. 성장 서비스
+  getRandomFruit: inventoryService.getRandomFruit,          // To. 인벤토리 서비스
+  givePlantedFruit: growthDiaryService.givePlantedFruit,    // To. 성장 서비스
+  deletePlantedFruit: growthDiaryService.deletePlantedFruit  // To. 성장 서비스
 };
 
 const missionService = {

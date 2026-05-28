@@ -1,18 +1,12 @@
 // services/adminService.js
 const certModel = require('../models/certificationModel');
 
-// MSA 가상 외부 서비스 통신 클라이언트 (유저, 아이템 서비스 정보 획득용)
+const userService = require('./external/userService');
+const inventoryService = require('./external/inventoryService');
+
 const externalServiceClient = {
-  // 여러 user_id 배열을 받아 닉네임 맵을 반환하는 API가 있다고 가정 (성능 최적화용)
-  async getUserNicknameMap(userIds) {
-    // 실제 구현 예: { 1: "홍길동", 2: "김철수" }
-    return userIds.reduce((acc, id) => ({ ...acc, [id]: `유저_${id}` }), {});
-  },
-  // 외부 아이템 서비스에 비료 회수(감소) 요청 API
-  async revokeFertilizer(userId) {
-    // 통신 로그 혹은 axios/gRPC 호출 처리
-    console.log(`[Item Service] user_id: ${userId}의 비료 1개 회수 완료`);
-  }
+  getUserNicknameMap: userService.getUserNicknameMap, // To. 유저 서비스
+  revokeFertilizer: inventoryService.revokeFertilizer  // To. 인벤토리 서비스
 };
 
 const adminService = {
