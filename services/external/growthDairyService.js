@@ -19,7 +19,6 @@ const growthDiaryService = {
   async givePlantedFruit(userId, fruitObj) {
     try {
       await axios.post(`${INTERNAL_API_URL}/users/${userId}/planted-fruits`, {
-        userId,
         item_type_id: fruitObj.item_type_id
       });
     } catch (error) {
