@@ -46,6 +46,15 @@ const missionExecutionModel = {
     return rows.map(e => e.mission_execution_id);
   },
 
+  async getExecutionIdsByUserId(userId) {
+    const [rows] = await promisePool.query(`
+      SELECT mission_execution_id
+      FROM mission_execution
+      WHERE user_id = ?
+    `, [userId]);
+    return rows.map(e => e.mission_execution_id); // [1, 2, 5, 12] 같은 순수 배열로 반환
+  },
+
   async deleteExecutionsInIds(ids) {
     if (ids.length === 0) return;
     const placeholders = ids.map(() => '?').join(',');

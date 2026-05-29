@@ -7,6 +7,7 @@ const { createClient } = require('redis');
 const RedisStore = require('connect-redis').default;
 const morgan = require('morgan');
 const { initRabbitMQ } = require('./rabbitmq')
+const { startUserEventConsumer } = require('./service/consumers/userConsumer');
 
 // 환경 변수 로드
 dotenv.config();
@@ -87,7 +88,9 @@ async function startServer() {
     
     // 서버 켜질 때 RabbitMQ 커넥션 딱 한 번 맺어두기
     await initRabbitMQ(); 
-    
+
+    await startUserEventConsumer();
+
     app.listen(PORT, () => {
       console.log(`미션 서비스 서버가 포트 ${PORT}에서 정상 작동 중입니다.`);
     });

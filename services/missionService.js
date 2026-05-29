@@ -191,8 +191,25 @@ const missionService = {
     }
 
     return { redirect: '/dashboard/mission' };
-  }
+  },
+  
+  async deleteUserMissionData(userId) {
+    // 유저 ID로 mission_execution_id 목록 조회
+    const executionIds = await missionExecutionModel.getExecutionIdsByUserId(userId);
 
+    // executionIds가 존재할 때만 execution_id 기반 삭제 함수들 실행
+    if (executionIds && executionIds.length > 0) {
+      // 하위 테이블 (인증 데이터) 먼저 제거
+      await certificationModel.deleteCertificationsInExecutionIds(executionIds);
+      // 미션 실행 데이터 제거
+      await missionExecutionModel.deleteExecutionsInIds(executionIds);
+    }
+    
+    // 레벨 옵션 데이터 제거
+    await levelOptionModel.deleteOptionsByUserId(userId);
+
+    console.log(`[미션 서비스] 유저 ${userId}의 모든 미션 관련 데이터 삭제 완료`);
+  }
 };
 
 module.exports = missionService;
