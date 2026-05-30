@@ -100,6 +100,22 @@ const dashboardController = {
       req.user = { user_id: 2 }; // 테스트용
       const userId = req.user.user_id;
       const { option } = req.body;
+      
+      // 다음 단계를 고르거나 재도전을 했으므로 보상/모달 잠금장치 세션을 false로 리셋
+      if (req.session) {
+        req.session.levelRewardGiven = false; // 과일 보상 락 해제
+        req.session.prevConfirmedId = null;   // 비료 모달 락 해제
+      }
+
+      await new Promise((resolve) => {
+        if (req.session) {
+          req.session.save(() => resolve());
+        } else {
+          resolve();
+        }
+      });
+
+      console.log(`[세션 리셋완료] 옵션: ${option} -> 다음 레벨을 위해 보상 세션 초기화 완료`);
 
       const { redirect } = await missionService.processLevelOption(userId, option);
 
@@ -111,6 +127,32 @@ const dashboardController = {
     } catch (err) {
       console.error(err);
       return res.status(500).json({ success: false, message: '레벨 옵션 처리 실패' });
+    }
+  },
+
+  async clearFertilizerModal(req, res) {
+    try {
+      console.log('--- 모달 클리어 API 호출됨 ---');
+
+      if (req.session) {
+        req.session.prevConfirmedId = null;
+      }
+      
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error('세션 저장 실패:', err);
+            return reject(err);
+          }
+          resolve();
+        });
+
+	console.log('--- 세션 클리어 및 레디스 저장 완료 ---');
+        return res.status(200).json({ success: true, message: '모달 상태 업데이트 완료' });
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ success: false });
     }
   }
 };
