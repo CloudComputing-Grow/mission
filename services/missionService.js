@@ -148,6 +148,12 @@ const missionService = {
           const randomFruit = await externalServiceClient.getRandomFruit();
           await externalServiceClient.givePlantedFruit(userId, randomFruit);
           rewardGivenThisTurn = true;
+	  
+	  session.levelRewardGiven = true;
+	  // Redis 세션 스토어에 상태 강제 저장 (비동기 꼬임 방지)
+	  await new Promise((resolve) => {
+            session.save(() => resolve());
+          });
         }
       }
     }
@@ -190,7 +196,7 @@ const missionService = {
       await externalServiceClient.givePlantedFruit(userId, randomFruit);
     }
 
-    return { redirect: '/dashboard/mission' };
+    return { redirect: '/missions' };
   },
   
   async deleteUserMissionData(userId) {

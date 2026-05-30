@@ -23,4 +23,7 @@ router.post('/confirm/:mission_execution_id', dashboardController.confirmMission
 // POST /api/v1/missions/level-option
 router.post('/level-option', dashboardController.postLevelOption);
 
+// POST /api/v1/missions/clear-modal
+router.post('/clear-modal', dashboardController.clearFertilizerModal);
+
 module.exports = router;
