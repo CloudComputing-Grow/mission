@@ -6,8 +6,8 @@ const session = require('express-session');
 const { createClient } = require('redis');
 const RedisStore = require('connect-redis').default;
 const morgan = require('morgan');
-const { initRabbitMQ } = require('./rabbitmq')
-const { startUserEventConsumer } = require('./service/consumers/userConsumer');
+const { initRabbitMQ } = require('./services/rabbitmq')
+const { startUserEventConsumer } = require('./services/consumers/userConsumer');
 
 // 환경 변수 로드
 dotenv.config();

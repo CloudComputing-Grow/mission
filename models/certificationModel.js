@@ -37,7 +37,7 @@ const certModel = {
     if (ids.length === 0) return;
     const placeholders = ids.map(() => '?').join(',');
     await promisePool.query(`DELETE FROM certification WHERE mission_execution_id IN (${placeholders})`, ids);
-  }
+  },
 
   // 검증 대기중인 인증 목록 조회 (checked = false)
   async getPendingCertifications() {
