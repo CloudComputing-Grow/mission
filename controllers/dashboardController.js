@@ -4,6 +4,7 @@ const missionService = require('../services/missionService');
 const dashboardController = {
   async getDashboard(req, res) {
     try {
+      req.user = { user_id: 2 }; // 테스트용
       const userId = req.user.user_id; 
       const missionId = req.query.missionId;
 
@@ -18,6 +19,7 @@ const dashboardController = {
 
   async submitMission(req, res) {
     try {
+      req.user = { user_id: 2 }; // 테스트용
       const userId = req.user.user_id;
       const missionId = parseInt(req.body.missionId);
       const imageUrl = req.file ? req.file.gcsUrl : null;
@@ -27,7 +29,7 @@ const dashboardController = {
       return res.status(201).json({
         success: true,
         message: '미션 제출 완료',
-        redirectUrl: '/api/v1/missions'
+        redirectUrl: '/missions'
       });
     } catch (err) {
       console.error(err);
@@ -37,15 +39,31 @@ const dashboardController = {
 
   async confirmMission(req, res) {
     try {
+      req.user = { user_id: 2 }; // 테스트용
       const userId = req.user.user_id;
       const missionExecutionId = req.params.mission_execution_id;
 
       await missionService.confirmMissionExecution(userId, missionExecutionId);
+      
+      if (!req.session) {
+        req.session = {};
+      }
+      req.session.prevConfirmedId = Number(missionExecutionId);
+      req.session.fertilizerUsed = false;
+      
+      req.session.save((err) => {
+        if (err) {
+          console.error('레디스 세션 저장 에러:', err);
+          return res.status(500).json({ success: false, message: '세션 저장 실패' });
+        }
 
-      return res.status(200).json({
-        success: true,
-        message: '미션 완료 확정 성공',
-        redirectUrl: '/api/v1/missions'
+        console.log(`[레디스 저장완료] 세션 키 등록 완료! ID: ${missionExecutionId}`);
+
+        return res.status(200).json({
+          success: true,
+          message: '미션 완료 확정 성공',
+          redirectUrl: '/missions'
+        });
       });
     } catch (err) {
       console.error(err);
@@ -55,8 +73,9 @@ const dashboardController = {
 
   async getMissionList(req, res) {
     try {
+      req.user = { user_id: 2 }; // 테스트용
       const userId = req.user.user_id;
-      const data = await missionService.getMissionListData(userId);
+      const data = await missionService.getMissionListData(userId, req.session);
 
       return res.status(200).json({
         success: true,
@@ -78,6 +97,7 @@ const dashboardController = {
 
   async postLevelOption(req, res) {
     try {
+      req.user = { user_id: 2 }; // 테스트용
       const userId = req.user.user_id;
       const { option } = req.body;
 

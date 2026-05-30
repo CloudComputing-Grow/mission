@@ -11,12 +11,27 @@ const inventoryService = require('./external/inventoryService');
 const growthDiaryService = require('./external/growthDiaryService');
 
 const externalServiceClient = {
-  getUser: userService.getUser,
-  updateUserLevel: userService.updateUserLevel,
-  getLatestTree: growthDiaryService.getLatestTree,          // To. 성장 서비스
-  getRandomFruit: inventoryService.getRandomFruit,          // To. 인벤토리 서비스
-  givePlantedFruit: growthDiaryService.givePlantedFruit,    // To. 성장 서비스
-  deletePlantedFruit: growthDiaryService.deletePlantedFruit  // To. 성장 서비스
+  // 💥 외부 서비스 호출 대신 테스트용 더미 데이터를 바로 반환하도록 수정!
+  async getUser(userId) {
+    return { user_id: userId, nickname: "테스트유저", level: 1 };
+  },
+  async updateUserLevel(userId, level) {
+    console.log(`[테스트] 유저 ${userId} 레벨을 ${level}로 변경 요청함`);
+    return true;
+  },
+  async getLatestTree(userId) {
+    // 나무가 다 자라지 않은 상태로 테스트 (100이면 레벨업 모달 뜸)
+    return { is_harvested: false, growth_rate: 40 }; 
+  },
+  async getRandomFruit() {
+    return "사과";
+  },
+  async givePlantedFruit(userId, fruit) {
+    console.log(`[테스트] 유저 ${userId}에게 과일 ${fruit} 지급`);
+  },
+  async deletePlantedFruit(userId) {
+    console.log(`[테스트] 유저 ${userId}의 심은 과일 삭제`);
+  }
 };
 
 const missionService = {
@@ -106,7 +121,7 @@ const missionService = {
         awaitingConfirm: c.checked === 1 && c.confirmed_by_user === 0
       };
 
-      if (c.confirmed_by_user === 1 && session.prevConfirmedId === c.mission_execution_id && !session.fertilizerUsed) {
+      if (c.confirmed_by_user === 1 && session?.prevConfirmedId === c.mission_execution_id && !session?.fertilizerUsed) {
         showFertilizerModal = true;
         latestMissionExecutionId = c.mission_execution_id;
       }

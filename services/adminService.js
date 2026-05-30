@@ -5,8 +5,17 @@ const userService = require('./external/userService');
 const inventoryService = require('./external/inventoryService');
 
 const externalServiceClient = {
-  getUserNicknameMap: userService.getUserNicknameMap, // To. 유저 서비스
-  revokeFertilizer: inventoryService.revokeFertilizer  // To. 인벤토리 서비스
+  // 💥 닉네임 맵을 하드코딩 더미 데이터로 반환
+  async getUserNicknameMap(userIds) {
+    const dummyMap = {};
+    userIds.forEach(id => {
+      dummyMap[id] = `유저_${id}_닉네임`;
+    });
+    return dummyMap;
+  }, 
+  async revokeFertilizer(userId) {
+    console.log(`[테스트] 유저 ${userId} 비료 회수 요청`);
+  }
 };
 
 const adminService = {
