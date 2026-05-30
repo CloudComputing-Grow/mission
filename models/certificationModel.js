@@ -19,8 +19,8 @@ const certModel = {
 
   async saveCertification({ mission_execution_id, user_id, image_source }) {
     await promisePool.query(`
-      INSERT INTO certification (mission_execution_id, user_id, image_source)
-      VALUES (?, ?, ?)
+      INSERT INTO certification (mission_execution_id, user_id, image_source, certification_date)
+      VALUES (?, ?, ?, NOW())
     `, [mission_execution_id, user_id, image_source]);
   },
 
