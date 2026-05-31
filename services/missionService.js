@@ -139,17 +139,10 @@ const missionService = {
 
     let showLevelOptionModal = !showFertilizerModal && (clearedMissions.length === 5 || hasFullyGrownTree);
 
-    // 1. 이미 NEXT를 선택했는지 내부 DB 체크
+    // 이미 NEXT를 선택했는지 내부 DB 체크
     const prevOption = await levelOptionModel.getLatestOption(userId);
     if (prevOption && prevOption.selected_option === 'NEXT') {
       showLevelOptionModal = false;
-    }
-
-    // 2. 외부 트리 정보 기반 체크 (비료 수확 예외)
-    if (!showLevelOptionModal && treeRow) {
-      if (treeRow.is_harvested && treeRow.growth_rate === 100) {
-        showLevelOptionModal = true;
-      }
     }
 
     const growthRate = treeRow?.growth_rate || 0;
