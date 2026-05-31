@@ -5,6 +5,7 @@ const certModel = require('../models/certificationModel');
 const missionExecutionModel = require('../models/missionExecutionModel');
 const levelOptionModel = require('../models/levelOptionModel');
 const { getChannel } = require('./rabbitmq');
+const redisClient = require('../config/redis');
 
 const userService = require('./external/userService');
 const inventoryService = require('./external/inventoryService');
@@ -95,6 +96,11 @@ const missionService = {
 
       console.log(`[미션 서비스] 완료 이벤트 발행 성공: ${missionExecutionId}`);
 
+      // 다음 화면에서 비료 지급 모달을 띄우기 위해 Redis에 임시 저장 (만료시간 1분)
+      const redisKey = `mission:user:${userId}:pending-confirm`;
+      await redisClient.setEx(redisKey, 60, String(missionExecutionId));
+      console.log(`[미션 서비스] Redis 팝업 데이터 저장 완료: ${redisKey}`);
+
     } catch (error) {
       console.error('[미션 서비스] 처리 중 에러 발생:', error);
       // 여기서 필요하다면 DB 롤백 로직을 태우거나 에러를 상위로 던짐
@@ -108,6 +114,14 @@ const missionService = {
 
     const mList = await missionModel.getMissionsByLevel(currentLevel);
     const certDetails = await certModel.getCertStatusDetails(userId);
+    
+    const pendingConfirmKey = `mission:user:${userId}:pending-confirm`;
+    const fertilizerUsedKey = `mission:user:${userId}:fertilizer-used`;
+
+    const [prevConfirmedId, fertilizerUsed] = await Promise.all([
+      redisClient.get(pendingConfirmKey),
+      redisClient.get(fertilizerUsedKey)
+    ]);
 
     const certStatus = {};
     let showFertilizerModal = false;
@@ -121,11 +135,16 @@ const missionService = {
         awaitingConfirm: c.checked === 1 && c.confirmed_by_user === 0
       };
 
-      if (c.confirmed_by_user === 1 && session?.prevConfirmedId === c.mission_execution_id && !session?.fertilizerUsed) {
+      if (c.confirmed_by_user === 1 && Number(prevConfirmedId) === c.mission_execution_id && !fertilizerUsed) {
         showFertilizerModal = true;
         latestMissionExecutionId = c.mission_execution_id;
       }
     });
+    
+    // 데이터를 읽었으므로 일회성 플래그 삭제 (Flash 세션 효과)
+    if (prevConfirmedId) {
+      await redisClient.del(pendingConfirmKey);
+    }
 
     const currentMissions = mList.filter(m => m.level === currentLevel);
     const clearedMissions = currentMissions.filter(m => certStatus[m.mission_id]?.status);
@@ -153,8 +172,11 @@ const missionService = {
     const missionCompleted = Math.max(clearedMissions.length, inferredCompleted);
 
     // 과일 지급 로직 (외부 서비스 조합)
-    let rewardGivenThisTurn = false;
-    if (missionCompleted >= 5 && !session.levelRewardGiven) {
+    // 과일 보상 중복 수령 방지도 Redis 캐시나 외부 서비스 이력으로 체크
+    const rewardGivenKey = `mission:user:${userId}:level-reward-given`;
+    const isRewardGiven = await redisClient.get(rewardGivenKey);
+
+    if (missionCompleted >= 5 && !isRewardGiven) {
       const executions = await missionExecutionModel.getCompletedDatesByLevel(userId, currentLevel);
       if (executions.length >= 5) {
         const start = new Date(executions[0].completed_date);
@@ -162,13 +184,9 @@ const missionService = {
         if ((end - start) / (1000 * 60 * 60 * 24) <= 10) {
           const randomFruit = await externalServiceClient.getRandomFruit();
           await externalServiceClient.givePlantedFruit(userId, randomFruit);
-          rewardGivenThisTurn = true;
 
-	  session.levelRewardGiven = true;
-	  // Redis 세션 스토어에 상태 강제 저장 (비동기 꼬임 방지)
-	  await new Promise((resolve) => {
-            session.save(() => resolve());
-          });
+	  // 보상 지급 플래그 레디스에 기록 (레벨업/리트라이 시 삭제 타겟)
+          await redisClient.set(rewardGivenKey, 'true');
         }
       }
     }
@@ -180,15 +198,18 @@ const missionService = {
       currentLevel: `${currentLevel}단계`,
       showFertilizerModal,
       latestMissionExecutionId,
-      showLevelOptionModal,
-      rewardGivenThisTurn
+      showLevelOptionModal
     };
   },
 
   async processLevelOption(userId, option) {
     await levelOptionModel.deleteOptionsByUserId(userId);
     await levelOptionModel.insertOption(userId, option);
-
+    
+    // 레벨 옵션 변경 시 관련 Redis 플래그들 초기화
+    await redisClient.del(`mission:user:${userId}:level-reward-given`);
+    await redisClient.del(`mission:user:${userId}:pending-confirm`);
+    
     if (option === 'NEXT') {
       const user = await externalServiceClient.getUser(userId);
       if (user.level === 8) return { redirect: '/last-complete' };
