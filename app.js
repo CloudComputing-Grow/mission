@@ -61,10 +61,12 @@ app.use((req, res, next) => {
 const missionRouter = require('./routes/dashboard');
 const adminRouter = require('./routes/admin');
 //const lastCompleteRouter = require('./routes/last-complete');
+const internalMissionRouter = require('./routes/internalMissionRouter');
 
 app.use('/api/v1/missions', missionRouter);
 app.use('/api/v1/admin', adminRouter);
 // app.use('/api/v1/last-complete', lastCompleteRouter); 
+app.use('/api/internal/v1/missions', internalMissionRouter);
 
 // 404 에러 처리 미들웨어
 app.use((req, res, next) => {

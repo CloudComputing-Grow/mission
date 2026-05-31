@@ -229,6 +229,37 @@ const missionService = {
     await levelOptionModel.deleteOptionsByUserId(userId);
 
     console.log(`[미션 서비스] 유저 ${userId}의 모든 미션 관련 데이터 삭제 완료`);
+  },
+
+  async completeMissionByFertilizer(userId) {
+    const user = await externalServiceClient.getUser(userId);
+    const availableMission = await missionModel.getAvailableMissionForUser(userId, user.level);
+
+    // 진행 가능한 미션이 없다면 예외 처리 또는 조기 리턴
+    if (!availableMission) {
+      return { success: false, message: "진행 가능한 미션이 없습니다." };
+    }
+
+    // 2. 내부 로컬 DB에 미션 자동 완료 기록
+    const execution = await missionExecutionModel.createExecutionWithDate(
+      availableMission.mission_id,
+      userId,
+      true
+    );
+
+    // 대시보드(getMissionListData)와의 상태 싱크를 위한 Redis 세팅
+    const fertilizerUsedKey = `mission:user:${userId}:fertilizer-used`;
+    const pendingConfirmKey = `mission:user:${userId}:pending-confirm`;
+
+    await Promise.all([
+      redisClient.setEx(fertilizerUsedKey, 60, 'true'),
+      redisClient.setEx(pendingConfirmKey, 60, String(execution.mission_execution_id))
+    ]);
+
+    return {
+      success: true,
+      missionExecutionId: execution.mission_execution_id
+    };
   }
 };
 
