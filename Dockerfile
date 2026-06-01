@@ -11,6 +11,6 @@ RUN npm install
 # 앱 소스 복사
 COPY . .
 
-EXPOSE 3001
+EXPOSE 3003
 
 CMD ["npm", "start", "dev"]
