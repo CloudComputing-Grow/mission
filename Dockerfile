@@ -17,7 +17,7 @@ COPY . .
 # root 권한이 아닌 node 기본 사용자 계정 사용 (보안 최적화)
 USER node
 
-EXPOSE 3001
+EXPOSE 3003
 
 # 운영 환경용 스크립트 실행
 CMD ["npm", "start"]

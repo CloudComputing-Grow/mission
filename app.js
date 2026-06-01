@@ -13,7 +13,7 @@ const { startUserEventConsumer } = require('./services/consumers/userConsumer');
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3003;
 
 // DB 연결 (비즈니스 로직 및 라우터에서 사용)
 const db = require('./db/db'); 
