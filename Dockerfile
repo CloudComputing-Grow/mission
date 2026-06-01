@@ -9,13 +9,10 @@ ENV NODE_ENV=production
 COPY package*.json ./
 
 # 운영 환경에 필요한(devDependencies를 제외한) 패키지만 설치
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # 앱 소스 전체 복사
 COPY . .
-
-# root 권한이 아닌 node 기본 사용자 계정 사용 (보안 최적화)
-USER node
 
 EXPOSE 3003
 
