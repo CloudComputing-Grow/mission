@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grow-mission-deployment
+  labels:
+    app: grow-mission
+spec:
+  replicas: 2 
+  selector:
+    matchLabels:
+      app: grow-mission
+  template:
+    metadata:
+      labels:
+        app: grow-mission
+    spec:
+      containers:
+      - name: grow-mission-container
+        image: sswujmc/grow-mission:latest 
+        imagePullPolicy: Always 
+        ports:
+        - containerPort: 3003
+	envFrom:
+        - configMapRef:
+            name: grow-mission-config
+        - secretRef:
+            name: grow-mission-secret
+        volumeMounts:
+        - name: gcp-key-volume
+          mountPath: /app/config/gcp-key.json 
+          readOnly: true
+      volumes:
+      - name: gcp-key-volume
+        secret:
+          secretName: grow-mission-secret
+          items:
+          - key: gcp-key.json
+            path: gcp-key.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grow-mission-service
+spec:
+  type: LoadBalancer 
+  selectors:
+    app: grow-mission
+  ports:
+    - protocol: TCP
+      port: 80       
+      targetPort: 3003 
