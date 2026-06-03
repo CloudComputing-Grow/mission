@@ -124,6 +124,44 @@ const dashboardController = {
         message: err.message || '내부 서버 오류'
       });
     }
+  },
+
+
+  async getExecutionStatus (req, res, next) {
+    try {
+      const userId = req.headers['x-user-id'];
+      const missionExecutionId = parseInt(req.params.missionExecutionId, 10);
+
+      if (!userId || isNaN(missionExecutionId)) {
+        return res.status(400).json({
+          success: false,
+          message: '필수 파라미터 또는 헤더가 누락되었거나 유효하지 않습니다.'
+        });
+      }
+      
+      const executionData = await missionService.getExecutionStatus(missionExecutionId, userId);
+
+      if (!executionData) {
+        return res.status(404).json({
+          success: false,
+          message: '해당 미션 수행 이력을 찾을 수 없습니다.'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          missionExecutionId: executionData.mission_execution_id,
+          userId: parseInt(executionData.user_id, 10), 
+          missionId: executionData.mission_id,
+          completed: Boolean(executionData.completed_or_not) // DB의 1/0을 true/false로 변환
+        }
+      });
+
+    } catch (err) {
+      console.error('내부 API 조회 에러:', err);
+      next(err); // 전역 에러 핸들러로 위임
+    }
   }
 };
 

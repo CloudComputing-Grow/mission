@@ -260,6 +260,18 @@ const missionService = {
       success: true,
       missionExecutionId: execution.mission_execution_id
     };
+  },
+
+  async getExecutionStatus(missionExecutionId, userId) {
+    const execution = await missionExecutionModel.findExecutionById(missionExecutionId);
+
+    if (!execution) return null;
+
+    if (String(execution.user_id) !== String(userId)) {
+      throw new Error('유저 식별 정보가 일치하지 않습니다.');
+    }
+
+    return execution;
   }
 };
 

@@ -59,6 +59,16 @@ const missionExecutionModel = {
     if (ids.length === 0) return;
     const placeholders = ids.map(() => '?').join(',');
     await promisePool.query(`DELETE FROM mission_execution WHERE mission_execution_id IN (${placeholders})`, ids);
+  },
+
+  async findExecutionById(missionExecutionId) {
+    const [rows] = await promisePool.query(`
+      SELECT mission_execution_id, user_id, mission_id, completed_or_not 
+      FROM mission_execution 
+      WHERE mission_execution_id = ?
+    `, [missionExecutionId]);
+
+    return rows[0] || null;
   }
 };
 
