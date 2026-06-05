@@ -160,8 +160,10 @@ const missionService = {
         const start = new Date(executions[0].completed_date);
         const end = new Date(executions[4].completed_date);
         if ((end - start) / (1000 * 60 * 60 * 24) <= 10) {
-          const randomFruit = await externalServiceClient.getRandomFruit();
-          await externalServiceClient.givePlantedFruit(userId, randomFruit);
+          const fruitRes = await externalServiceClient.getRandomFruit();
+	  await externalServiceClient.givePlantedFruit(userId, {
+            item_type_id: fruitRes.data.itemTypeId
+          });
 
 	  // 보상 지급 플래그 레디스에 기록 (레벨업/리트라이 시 삭제 타겟)
           await redisClient.set(rewardGivenKey, 'true');
