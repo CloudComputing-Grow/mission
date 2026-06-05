@@ -1,5 +1,5 @@
 const axios = require('axios');
-const INTERNAL_API_URL = (process.env.API_GATEWAY_URL || 'http://api-gateway') + '/api/internal/v1';
+const INTERNAL_API_URL = (process.env.GROWTH_SERVICE_URL || 'http://growth-diary:3005') + '/api/internal/v1';
 
 const growthDiaryService = {
   // 최신 나무 성장도 및 수확 상태 조회

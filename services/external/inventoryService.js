@@ -1,5 +1,5 @@
 const axios = require('axios');
-const INTERNAL_API_URL = (process.env.API_GATEWAY_URL || 'http://api-gateway') + '/api/internal/v1';
+const INTERNAL_API_URL = (process.env.INVENTORY_SERVICE_URL || 'http://inventory-market:3004') + '/api/internal/v1';
 
 const inventoryService = {
   // 아이템/인벤토리 서비스에서 랜덤 과일 item_type_id 획득

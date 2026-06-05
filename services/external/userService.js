@@ -1,5 +1,5 @@
 const axios = require('axios');
-const INTERNAL_API_URL = (process.env.API_GATEWAY_URL || 'http://api-gateway') + '/api/internal/v1';
+const INTERNAL_API_URL = (process.env.USER_SERVICE_URL || 'http://user:3001') + '/api/internal/v1';
 
 const userService = {
   async getUser(userId) {
