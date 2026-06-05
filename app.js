@@ -3,11 +3,11 @@ const express = require('express');
 const path = require('path');
 const dotenv = require('dotenv');
 const session = require('express-session');
-const { createClient } = require('redis');
 const RedisStore = require('connect-redis').default;
 const morgan = require('morgan');
 const { initRabbitMQ } = require('./services/rabbitmq')
 const { startUserEventConsumer } = require('./services/consumers/userConsumer');
+const redisClient = require('./config/redis');
 
 // 환경 변수 로드
 dotenv.config();
@@ -17,10 +17,6 @@ const PORT = process.env.PORT || 3003;
 
 // DB 연결 (비즈니스 로직 및 라우터에서 사용)
 const db = require('./db/db'); 
-
-// 미션 서비스 전용 레디스 클라이언트 연결
-const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-redisClient.connect().catch(console.error);
 
 // 전역 미들웨어 설정 (로깅 및 파싱)
 app.use(morgan('dev'));
