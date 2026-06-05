@@ -193,6 +193,9 @@ const missionService = {
     if (option === 'NEXT') {
       const user = await externalServiceClient.getUser(userId);
       if (user.level === 8) return { redirect: '/last-complete' };
+      
+      // 다음 레벨 넘어가기 직전에 과거 NEXT기록 삭제
+      await levelOptionModel.deleteOptionsByUserId(userId);
 
       await externalServiceClient.updateUserLevel(userId, user.level + 1);
       await externalServiceClient.deletePlantedFruit(userId);
@@ -208,8 +211,10 @@ const missionService = {
         await missionExecutionModel.deleteExecutionsInIds(executionIds);
       }
 
-      const randomFruit = await externalServiceClient.getRandomFruit();
-      await externalServiceClient.givePlantedFruit(userId, randomFruit);
+      const fruitRes = await externalServiceClient.getRandomFruit();
+      await externalServiceClient.givePlantedFruit(userId, {
+        item_type_id: fruitRes.data.itemTypeId
+      });
     }
 
     return { redirect: '/missions' };
