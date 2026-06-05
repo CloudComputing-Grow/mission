@@ -22,7 +22,10 @@ const adminService = {
     ])];
 
     // 3. 외부 서비스에서 닉네임 정보 획득
-    const nicknameMap = await externalServiceClient.getUserNicknameMap(userIds);
+    let nicknameMap = {};
+    if (userIds.length > 0) {
+      nicknameMap = await externalServiceClient.getUserNicknameMap(userIds);
+    }
 
     // 4. 유저 데이터 바인딩하여 최종 프론트용 데이터 조립
     const formattedPending = pendingCerts.map(c => ({
