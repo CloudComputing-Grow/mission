@@ -210,11 +210,8 @@ const missionService = {
         await certModel.deleteCertificationsInExecutionIds(executionIds);
         await missionExecutionModel.deleteExecutionsInIds(executionIds);
       }
-
-      const fruitRes = await externalServiceClient.getRandomFruit();
-      await externalServiceClient.givePlantedFruit(userId, {
-        item_type_id: fruitRes.data.itemTypeId
-      });
+      
+      await externalServiceClient.deletePlantedFruit(userId);
     }
 
     return { redirect: '/missions' };
