@@ -172,7 +172,7 @@ const missionService = {
             await redisClient.set(rewardGivenKey, 'true');
 
           } catch (error) {
-            if (error.isAxiosError && error.response?.status === 409) {
+            if (error.response?.status === 409) {
               console.warn(`[409 예외 우회] 유저 ${userId}는 이미 나무를 발급받았습니다. Redis 상태를 동기화합니다.`);
 
               await redisClient.set(rewardGivenKey, 'true');
