@@ -137,7 +137,12 @@ const missionService = {
     const treeRow = await externalServiceClient.getLatestTree(userId);
     const hasFullyGrownTree = treeRow && !treeRow.is_harvested && treeRow.growth_rate >= 100;
 
-    let showLevelOptionModal = !showFertilizerModal && (clearedMissions.length === 5 || hasFullyGrownTree);
+    let showLevelOptionModal = !showFertilizerModal && (clearedMissions.length === 5) && !hasFullyGrownTree;
+
+    // 만약 이미 수확을 완료한 상태(is_harvested === true)이면서 미션 5개를 채웠다면 모달을 띄움
+    if (treeRow && treeRow.is_harvested && clearedMissions.length === 5) {
+      showLevelOptionModal = true;
+    }
 
     // 이미 NEXT를 선택했는지 내부 DB 체크
     const prevOption = await levelOptionModel.getLatestOption(userId);
