@@ -161,12 +161,25 @@ const missionService = {
         const end = new Date(executions[4].completed_date);
         if ((end - start) / (1000 * 60 * 60 * 24) <= 10) {
           const fruitRes = await externalServiceClient.getRandomFruit();
-	  await externalServiceClient.givePlantedFruit(userId, {
-            item_type_id: fruitRes.data.itemTypeId
-          });
 
-	  // 보상 지급 플래그 레디스에 기록 (레벨업/리트라이 시 삭제 타겟)
-          await redisClient.set(rewardGivenKey, 'true');
+	  try {
+            // 과일 심기 API 호출
+            await externalServiceClient.givePlantedFruit(userId, {
+              item_type_id: fruitRes.data.itemTypeId
+            });
+
+            // 성공 시 레디스에 기록
+            await redisClient.set(rewardGivenKey, 'true');
+
+          } catch (error) {
+            if (error.isAxiosError && error.response?.status === 409) {
+              console.warn(`[409 예외 우회] 유저 ${userId}는 이미 나무를 발급받았습니다. Redis 상태를 동기화합니다.`);
+
+              await redisClient.set(rewardGivenKey, 'true');
+            } else {
+              throw error;
+	    }
+          }
         }
       }
     }
