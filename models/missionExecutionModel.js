@@ -11,10 +11,14 @@ const missionExecutionModel = {
   },
 
   async createExecutionWithDate(missionId, userId, completedOrNot = true) {
-    await promisePool.query(`
+    const [result] = await promisePool.query(`
       INSERT INTO mission_execution (mission_id, user_id, completed_or_not, completed_date)
       VALUES (?, ?, ?, NOW())
     `, [missionId, userId, completedOrNot]);
+
+    return {
+      mission_execution_id: result.insertId
+    };
   },
 
   async updateExecutionToComplete(missionExecutionId) {
