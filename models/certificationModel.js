@@ -17,11 +17,18 @@ const certModel = {
     return rows;
   },
 
-  async saveCertification({ mission_execution_id, user_id, image_source }) {
+  async saveCertification({ mission_execution_id, user_id, image_source, checked = 0, confirmed_by_user = 0 }) {
     await promisePool.query(`
-      INSERT INTO certification (mission_execution_id, user_id, image_source, certification_date)
-      VALUES (?, ?, ?, NOW())
-    `, [mission_execution_id, user_id, image_source]);
+      INSERT INTO certification (
+        mission_execution_id,
+        user_id,
+        image_source,
+        checked,
+        confirmed_by_user,
+        certification_date
+     )
+      VALUES (?, ?, ?, ?, ?, NOW())
+    `, [mission_execution_id, user_id, image_source, checked, confirmed_by_user]);
   },
 
   async updateConfirmation(missionExecutionId, userId) {
@@ -70,6 +77,7 @@ const certModel = {
       JOIN mission_execution me ON c.mission_execution_id = me.mission_execution_id
       JOIN mission m ON me.mission_id = m.mission_id
       WHERE c.checked = 1 AND c.confirmed_by_user = 1
+        AND c.image_source != 'FERTILIZER_AUTO_COMPLETE'
         AND c.certification_date >= DATE_SUB(NOW(), INTERVAL 1 DAY)
       ORDER BY c.certification_date DESC
     `);

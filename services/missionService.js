@@ -264,6 +264,15 @@ const missionService = {
       true
     );
 
+    // 대시보드 조회를 위해 자동 완료된 인증 레코드 생성
+    await certModel.saveCertification({
+      mission_execution_id: execution.mission_execution_id,
+      user_id: userId,
+      image_source: 'FERTILIZER_AUTO_COMPLETE', // 비료 완료 구분용 더미 주소
+      checked: 1,           // 관리자 승인 건너뜀
+      confirmed_by_user: 1  // 유저 최종 확인 건너뜀
+    });
+
     // 대시보드(getMissionListData)와의 상태 싱크를 위한 Redis 세팅
     const fertilizerUsedKey = `mission:user:${userId}:fertilizer-used`;
     const pendingConfirmKey = `mission:user:${userId}:pending-confirm`;
