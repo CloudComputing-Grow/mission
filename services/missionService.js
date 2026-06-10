@@ -242,7 +242,7 @@ const missionService = {
     // executionIds가 존재할 때만 execution_id 기반 삭제 함수들 실행
     if (executionIds && executionIds.length > 0) {
       // 하위 테이블 (인증 데이터) 먼저 제거
-      await certificationModel.deleteCertificationsInExecutionIds(executionIds);
+      await certModel.deleteCertificationsInExecutionIds(executionIds);
       // 미션 실행 데이터 제거
       await missionExecutionModel.deleteExecutionsInIds(executionIds);
     }

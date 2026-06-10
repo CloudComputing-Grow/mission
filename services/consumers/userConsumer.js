@@ -7,8 +7,8 @@ async function startUserEventConsumer() {
 
     const exchangeName = 'user.events';
     const exchangeType = 'topic';
-    const queueName = 'mission-service.user-delete.queue';
-    const routingKey = 'user.events';
+    const queueName = 'mission-service.user-events.queue';
+    const routingKey = 'user.deleted';
 
     await channel.assertExchange(exchangeName, exchangeType, { durable: true });
     await channel.assertQueue(queueName, { durable: true });
@@ -23,7 +23,6 @@ async function startUserEventConsumer() {
 
           if (eventData.eventType === 'UserDeleted') {
             const { userId } = eventData;
-            console.log(`[미션 서비스] 유저 ${userId} 회원탈퇴 -> 미션 데이터 정리`);
             await missionService.deleteUserMissionData(userId)
           }
 
