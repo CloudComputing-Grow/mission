@@ -10,6 +10,7 @@ const redisPort = process.env.REDIS_PORT || 6379;
 // 레디스 클라이언트 생성
 const redisClient = createClient({
     url: `redis://${redisHost}:${redisPort}`,
+    disableOfflineQueue: true,
     // 재연결 전략 설정 (네트워크 순단이나 Redis 재부팅 대비)
     socket: {
         connectTimeout: 1000,
