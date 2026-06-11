@@ -232,7 +232,7 @@ const missionService = {
       await externalServiceClient.deletePlantedFruit(userId);
     }
 
-    return { redirect: '/missions' };
+    return { redirect: '/home' };
   },
   
   async deleteUserMissionData(userId) {
