@@ -23,7 +23,7 @@ const missionModel = {
       FROM mission m
       LEFT JOIN mission_execution me 
         ON m.mission_id = me.mission_id AND me.user_id = ?
-      WHERE m.level = ? AND (me.completed_or_not IS NULL OR me.completed_or_not = 0)
+      WHERE m.level = ? AND me.completed_or_not IS NULL
       LIMIT 1
     `, [userId, level]);
     return row || null;
