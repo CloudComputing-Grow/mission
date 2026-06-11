@@ -33,7 +33,7 @@ metadata:
   name: grow-redis-service 
 spec:
   type: ClusterIP # 외부 노출 없이 쿠버네티스 내부 망 안에서만 통신하도록 보안 설정
-  selectors:
+  selector:
     app: grow-redis
   ports:
     - protocol: TCP
