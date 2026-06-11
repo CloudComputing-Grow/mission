@@ -40,12 +40,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: grow-mission-service
+  name: mission
 spec:
   type: LoadBalancer 
   selectors:
     app: grow-mission
   ports:
     - protocol: TCP
-      port: 3003       
+      port: 3003 
       targetPort: 3003 
