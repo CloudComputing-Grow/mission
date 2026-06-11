@@ -12,7 +12,7 @@ const redisClient = createClient({
     url: `redis://${redisHost}:${redisPort}`,
     // 재연결 전략 설정 (네트워크 순단이나 Redis 재부팅 대비)
     socket: {
-        connectTimeout: 1000
+        connectTimeout: 1000,
 
         reconnectStrategy: (retries) => {
             if (retries > 10) {
