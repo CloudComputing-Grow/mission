@@ -20,7 +20,7 @@ spec:
         imagePullPolicy: Always 
         ports:
         - containerPort: 3003
-	envFrom:
+        envFrom:
         - configMapRef:
             name: grow-mission-config
         - secretRef:
@@ -28,6 +28,7 @@ spec:
         volumeMounts:
         - name: gcp-key-volume
           mountPath: /app/config/gcp-key.json 
+          subPath: gcp-key.json
           readOnly: true
       volumes:
       - name: gcp-key-volume
@@ -43,9 +44,9 @@ metadata:
   name: mission
 spec:
   type: LoadBalancer 
-  selectors:
+  selector:
     app: grow-mission
   ports:
     - protocol: TCP
       port: 3003 
-      targetPort: 3003 
+      targetPort: 3003
