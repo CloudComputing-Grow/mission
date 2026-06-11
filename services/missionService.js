@@ -20,6 +20,46 @@ const externalServiceClient = {
   deletePlantedFruit: growthDiaryService.deletePlantedFruit  // To. 성장 서비스
 };
 
+/**
+ * Redis 장애 대응을 위한 안전한 Redis 래퍼 객체 (Safe Redis Shield)
+ * Redis가 다운되어 에러가 발생해도, 어플리케이션이 크래시되지 않고 로그만 남긴 뒤
+ * 기본값(null 또는 false)을 반환하여 메인 서비스가 계속 작동하도록 방어합니다.
+ */
+const safeRedis = {
+  async get(key) {
+    try {
+      return await redisClient.get(key);
+    } catch (error) {
+      console.error(`[Redis 장애 - GET 에러] Key: ${key}. 서비스 지속을 위해 null 처리합니다.`, error);
+      return null;
+    }
+  },
+  async set(key, value) {
+    try {
+      return await redisClient.set(key, value);
+    } catch (error) {
+      console.error(`[Redis 장애 - SET 에러] Key: ${key}. 작업을 건너뜁니다.`, error);
+      return null;
+    }
+  },
+  async setEx(key, seconds, value) {
+    try {
+      return await redisClient.setEx(key, seconds, value);
+    } catch (error) {
+      console.error(`[Redis 장애 - SETEX 에러] Key: ${key}. 작업을 건너뜁니다.`, error);
+      return null;
+    }
+  },
+  async del(key) {
+    try {
+      return await redisClient.del(key);
+    } catch (error) {
+      console.error(`[Redis 장애 - DEL 에러] Key: ${key}. 작업을 건너뜁니다.`, error);
+      return null;
+    }
+  }
+};
+
 const missionService = {
   async getDashboardData(userId, queryMissionId) {
     const user = await externalServiceClient.getUser(userId);
@@ -75,7 +115,6 @@ const missionService = {
       );
 
       if (!isSent) {
-        // RabbitMQ 내부 버퍼가 가득 찼을 때의 예외 처리
         console.warn(`[경고] 메시지 버퍼 가득 참: ${missionExecutionId}`);
       }
 
@@ -83,12 +122,11 @@ const missionService = {
       
       // 다음 화면에서 비료 지급 모달을 띄우기 위해 Redis에 임시 저장 (만료시간 1분)
       const redisKey = `mission:user:${userId}:pending-confirm`;
-      await redisClient.setEx(redisKey, 60, String(missionExecutionId));
-      console.log(`[미션 서비스] Redis 팝업 데이터 저장 완료: ${redisKey}`);
+      await safeRedis.setEx(redisKey, 60, String(missionExecutionId));
+      console.log(`[미션 서비스] Redis 팝업 데이터 저장 시도 완료: ${redisKey}`);
 
     } catch (error) {
       console.error('[미션 서비스] 처리 중 에러 발생:', error);
-      // 여기서 필요하다면 DB 롤백 로직을 태우거나 에러를 상위로 던짐
       throw error;
     }
   },
@@ -108,8 +146,8 @@ const missionService = {
     const fertilizerUsedKey = `mission:user:${userId}:fertilizer-used`;
 
     const [prevConfirmedId, fertilizerUsed] = await Promise.all([
-      redisClient.get(pendingConfirmKey),
-      redisClient.get(fertilizerUsedKey)
+      safeRedis.get(pendingConfirmKey),
+      safeRedis.get(fertilizerUsedKey)
     ]);
 
     certDetails.forEach(c => {
@@ -128,7 +166,7 @@ const missionService = {
 
     // 데이터를 읽었으므로 일회성 플래그 삭제 (Flash 세션 효과)
     if (prevConfirmedId) {
-      await redisClient.del(pendingConfirmKey);
+      await safeRedis.del(pendingConfirmKey);
     }
 
     const currentMissions = mList.filter(m => m.level === currentLevel);
@@ -139,12 +177,10 @@ const missionService = {
 
     let showLevelOptionModal = !showFertilizerModal && (clearedMissions.length === 5) && !hasFullyGrownTree;
 
-    // 만약 이미 수확을 완료한 상태(is_harvested === true)이면서 미션 5개를 채웠다면 모달을 띄움
     if (treeRow && treeRow.is_harvested && clearedMissions.length === 5) {
       showLevelOptionModal = true;
     }
 
-    // 이미 NEXT를 선택했는지 내부 DB 체크
     const prevOption = await levelOptionModel.getLatestOption(userId);
     if (prevOption && prevOption.selected_option === 'NEXT') {
       showLevelOptionModal = false;
@@ -157,7 +193,7 @@ const missionService = {
     // 과일 지급 로직 (외부 서비스 조합)
     // 과일 보상 중복 수령 방지도 Redis 캐시나 외부 서비스 이력으로 체크
     const rewardGivenKey = `mission:user:${userId}:level-reward-given`;
-    const isRewardGiven = await redisClient.get(rewardGivenKey);
+    const isRewardGiven = await safeRedis.get(rewardGivenKey);
 
     if (missionCompleted >= 5 && !isRewardGiven) {
       const executions = await missionExecutionModel.getCompletedDatesByLevel(userId, currentLevel);
@@ -167,23 +203,22 @@ const missionService = {
         if ((end - start) / (1000 * 60 * 60 * 24) <= 10) {
           const fruitRes = await externalServiceClient.getRandomFruit();
 
-	  try {
+          try {
             // 과일 심기 API 호출
             await externalServiceClient.givePlantedFruit(userId, {
               item_type_id: fruitRes.data.itemTypeId
             });
 
             // 성공 시 레디스에 기록
-            await redisClient.set(rewardGivenKey, 'true');
+	    await safeRedis.set(rewardGivenKey, 'true');
 
           } catch (error) {
             if (error.response?.status === 409) {
-              console.warn(`[409 예외 우회] 유저 ${userId}는 이미 나무를 발급받았습니다. Redis 상태를 동기화합니다.`);
-
-              await redisClient.set(rewardGivenKey, 'true');
+              console.warn(`[409 예외 우회] 유저 ${userId}는 이미 나무를 발급받았습니다. Redis 상태 동기화를 시도합니다.`);
+              await safeRedis.set(rewardGivenKey, 'true');
             } else {
               throw error;
-	    }
+            }
           }
         }
       }
@@ -205,14 +240,13 @@ const missionService = {
     await levelOptionModel.insertOption(userId, option);
     
     // 레벨 옵션 변경 시 관련 Redis 플래그들 초기화
-    await redisClient.del(`mission:user:${userId}:level-reward-given`);
-    await redisClient.del(`mission:user:${userId}:pending-confirm`);
+    await safeRedis.del(`mission:user:${userId}:level-reward-given`);
+    await safeRedis.del(`mission:user:${userId}:pending-confirm`);
 
     if (option === 'NEXT') {
       const user = await externalServiceClient.getUser(userId);
       if (user.level === 8) return { redirect: '/last-complete' };
       
-      // 다음 레벨 넘어가기 직전에 과거 NEXT기록 삭제
       await levelOptionModel.deleteOptionsByUserId(userId);
 
       await externalServiceClient.updateUserLevel(userId, user.level + 1);
@@ -236,18 +270,13 @@ const missionService = {
   },
   
   async deleteUserMissionData(userId) {
-    // 유저 ID로 mission_execution_id 목록 조회
     const executionIds = await missionExecutionModel.getExecutionIdsByUserId(userId);
 
-    // executionIds가 존재할 때만 execution_id 기반 삭제 함수들 실행
     if (executionIds && executionIds.length > 0) {
-      // 하위 테이블 (인증 데이터) 먼저 제거
       await certModel.deleteCertificationsInExecutionIds(executionIds);
-      // 미션 실행 데이터 제거
       await missionExecutionModel.deleteExecutionsInIds(executionIds);
     }
     
-    // 레벨 옵션 데이터 제거
     await levelOptionModel.deleteOptionsByUserId(userId);
 
     console.log(`[미션 서비스] 유저 ${userId}의 모든 미션 관련 데이터 삭제 완료`);
@@ -257,25 +286,22 @@ const missionService = {
     const user = await externalServiceClient.getUser(userId);
     const availableMission = await missionModel.getAvailableMissionForUser(userId, user.level);
 
-    // 진행 가능한 미션이 없다면 예외 처리 또는 조기 리턴
     if (!availableMission) {
       return { success: false, message: "진행 가능한 미션이 없습니다." };
     }
 
-    // 2. 내부 로컬 DB에 미션 자동 완료 기록
     const execution = await missionExecutionModel.createExecutionWithDate(
       availableMission.mission_id,
       userId,
       true
     );
 
-    // 대시보드 조회를 위해 자동 완료된 인증 레코드 생성
     await certModel.saveCertification({
       mission_execution_id: execution.mission_execution_id,
       user_id: userId,
-      image_source: 'FERTILIZER_AUTO_COMPLETE', // 비료 완료 구분용 더미 주소
-      checked: 1,           // 관리자 승인 건너뜀
-      confirmed_by_user: 1  // 유저 최종 확인 건너뜀
+      image_source: 'FERTILIZER_AUTO_COMPLETE', 
+      checked: 1,          
+      confirmed_by_user: 1  
     });
 
     // 대시보드(getMissionListData)와의 상태 싱크를 위한 Redis 세팅
@@ -283,8 +309,8 @@ const missionService = {
     const pendingConfirmKey = `mission:user:${userId}:pending-confirm`;
 
     await Promise.all([
-      redisClient.setEx(fertilizerUsedKey, 60, 'true'),
-      redisClient.setEx(pendingConfirmKey, 60, String(execution.mission_execution_id))
+      safeRedis.setEx(fertilizerUsedKey, 60, 'true'),
+      safeRedis.setEx(pendingConfirmKey, 60, String(execution.mission_execution_id))
     ]);
 
     return {
