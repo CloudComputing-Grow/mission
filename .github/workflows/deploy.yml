@@ -28,3 +28,4 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: sswujmc/grow-mission:latest # 내 저장소 이름과 태그
+	no-cache: true
