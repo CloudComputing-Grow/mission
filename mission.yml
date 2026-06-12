@@ -1,11 +1,11 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grow-mission-deployment
   labels:
     app: grow-mission
 spec:
-  replicas: 2 
+  replicas: 2
   selector:
     matchLabels:
       app: grow-mission
@@ -16,10 +16,17 @@ spec:
     spec:
       containers:
       - name: grow-mission-container
-        image: sswujmc/grow-mission:latest 
-        imagePullPolicy: Always 
+        image: sswujmc/grow-mission:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 3003
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
         envFrom:
         - configMapRef:
             name: grow-mission-config
@@ -27,7 +34,7 @@ spec:
             name: grow-mission-secret
         volumeMounts:
         - name: gcp-key-volume
-          mountPath: /app/config/gcp-key.json 
+          mountPath: /app/config/gcp-key.json
           subPath: gcp-key.json
           readOnly: true
       volumes:
@@ -48,5 +55,25 @@ spec:
     app: grow-mission
   ports:
     - protocol: TCP
-      port: 3003 
+      port: 3003
       targetPort: 3003
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: grow-mission-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: grow-mission-deployment
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+
